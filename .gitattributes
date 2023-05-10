@@ -1,0 +1,9 @@
+# See LICENSE.txt for copyright and licensing information about this file.
+
+# Don't normalize/convert line ending of text files. It's just a bad idea.
+* -text
+
+# Sometimes a repo has "* text" set, and that screws up files, like shell
+# scripts, so git bash on Windows can't run build scripts. In this case, what
+# works for me is to first run "git config --global core.autocrlf input" when
+# cloning a remote repo, and then set it to "false" right after cloning.
