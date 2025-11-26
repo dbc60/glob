@@ -128,6 +128,43 @@ func TestMatchAll(t *testing.T) {
 			matched: []bool{true},
 			counts:  []int{20},
 		},
+		// Test full patterns with ] literal in character classes
+		{
+			pattern: "file[!]].txt",
+			paths:   []string{"filea.txt", "fileb.txt", "file].txt"},
+			matched: []bool{true, true, false},
+			counts:  []int{9, 9, 4},
+		},
+		{
+			pattern: "file[]!].txt",
+			paths:   []string{"file].txt", "file!.txt", "filea.txt"},
+			matched: []bool{true, true, false},
+			counts:  []int{9, 9, 4},
+		},
+		{
+			pattern: "dir" + GlobSeparatorString + "[!]]" + GlobSeparatorString + "file",
+			paths:   []string{"dir" + SeparatorString + "a" + SeparatorString + "file", "dir" + SeparatorString + "]" + SeparatorString + "file"},
+			matched: []bool{true, false},
+			counts:  []int{10, 4},
+		},
+		{
+			pattern: "[]]test",
+			paths:   []string{"]test", "atest"},
+			matched: []bool{true, false},
+			counts:  []int{5, 0},
+		},
+		{
+			pattern: "**[!]].log",
+			paths:   []string{"a.log", "].log", "dir" + SeparatorString + "b.log"},
+			matched: []bool{true, false, true},
+			counts:  []int{5, 0, 9},
+		},
+		{
+			pattern: "file[]-a].txt",
+			paths:   []string{"file].txt", "file^.txt", "filea.txt", "fileb.txt"},
+			matched: []bool{true, true, true, false},
+			counts:  []int{9, 9, 9, 4},
+		},
 	}
 
 	for i, test := range testIO {

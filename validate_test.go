@@ -48,6 +48,11 @@ func TestValidate(t *testing.T) {
 		{"[\\!\\-?*\\]]", nil, 10},
 		{"*asdf", nil, 5},
 		{"*asdf*", nil, 6},
+		// Additional tests for ] as literal character
+		{"[!]]", nil, 4},  // Negated class with ] at position 2 as literal
+		{"[]a]", nil, 4},  // ] at pos 1, then a, then end
+		{"[]-z]", nil, 5}, // ] at start of range (] through z)
+		{"[]-]", nil, 4},  // Two literals: ] and - (NOT a range)
 		{string(rune(0x00)), ErrGlobReservedSymbol, 0},
 	}
 	for i, test := range testIO {

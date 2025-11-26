@@ -53,8 +53,12 @@ func classIsValid(pattern []rune) (int, error) {
 		case ']':
 			// found end of class if the right bracket is not the first character, nor
 			// is it the second character in a negated class
-			if i != 1 || i != 2 && pattern[1] == '!' {
+			if !(i == 1 || i == 2 && pattern[1] == '!') {
 				done = true
+			} else {
+				// ] is a literal character at position 1 (or 2 in negated class),
+				// so capture it in 'lo' to support ranges like []-z] per glob(7)
+				lo = token
 			}
 		case '-':
 			// if the hyphen is the first character in the class, or the second
@@ -124,7 +128,7 @@ func matchClass(pattern []rune, value rune, negated bool) bool {
 	// pattern is consumed.
 	var lo, hi rune
 
-	for !matched && ((pattern[i] != ']' || i == 1) || escaped) {
+	for !matched && ((pattern[i] != ']' || i == 1 || (i == 2 && negated)) || escaped) {
 		token := pattern[i]
 		// If token is '\' and escaped is not true, set it to true, otherwise
 		// ensure escaped is false.
@@ -186,7 +190,7 @@ func getClass(pattern []rune) (negated bool, subpattern []rune) {
 		token := pattern[i]
 		switch token {
 		case ']':
-			if i != 1 || i != 2 && negated {
+			if !(i == 1 || i == 2 && negated) {
 				done = true
 			}
 		case escapeCharacter:

@@ -165,6 +165,11 @@ func TestGetClass(t *testing.T) {
 			negated:  true,
 		},
 		{
+			class:    []rune(`[!]]`),
+			expected: []rune(`[!]]`),
+			negated:  true,
+		},
+		{
 			class:    []rune("[!abc]"),
 			expected: []rune("[!abc]"),
 			negated:  true,
@@ -396,6 +401,48 @@ func TestMatchClass(t *testing.T) {
 			values:   []rune("\\"),
 			expected: []bool{false},
 		},
+		// Test []] - should only match ]
+		{
+			pattern:  []rune("[]]"),
+			values:   []rune{']', 'a', '[', '!'},
+			expected: []bool{true, false, false, false},
+		},
+		// Test [!]] - should match anything except ]
+		{
+			pattern:  []rune("[!]]"),
+			values:   []rune{']', 'a', 'b', '!', '['},
+			expected: []bool{false, true, true, true, true},
+		},
+		// Test []!] - should match ] or !
+		{
+			pattern:  []rune("[]!]"),
+			values:   []rune{']', '!', 'a', '['},
+			expected: []bool{true, true, false, false},
+		},
+		// Test negated class with ] literal - should NOT match path separator
+		{
+			pattern:  []rune("[!]]"),
+			values:   []rune{Separator},
+			expected: []bool{false},
+		},
+		// Test []-a] - range from ] (0x5D) to a (0x61)
+		{
+			pattern:  []rune("[]-a]"),
+			values:   []rune{']', '^', '_', '`', 'a', 'b', '\\'},
+			expected: []bool{true, true, true, true, true, false, false},
+		},
+		// Test []-] - two literals: ] and - (NOT a range)
+		{
+			pattern:  []rune("[]-]"),
+			values:   []rune{']', '-', 'a', '^'},
+			expected: []bool{true, true, false, false},
+		},
+		// Test [!]-a] - negated range, should NOT match ], ^, _, `, a
+		{
+			pattern:  []rune("[!]-a]"),
+			values:   []rune{']', 'a', 'b', 'z'},
+			expected: []bool{false, false, true, true},
+		},
 	}
 
 	for i, test := range testIO {
@@ -413,6 +460,56 @@ func TestMatchClass(t *testing.T) {
 				if matched != test.expected[i] {
 					t.Errorf("Test %s[%02d] (\"%s\", %#U): Expected match %t. Actual match %t.", name, i+1, string(test.pattern), value, test.expected[i], matched)
 				}
+			}
+		})
+	}
+}
+
+// TestBracketAsLiteral verifies that ] is correctly treated as a literal
+// character when it appears at position 1, or at position 2 in a negated class.
+func TestBracketAsLiteral(t *testing.T) {
+	testCases := []struct {
+		name     string
+		pattern  string
+		path     string
+		expected bool
+	}{
+		// ] at position 1 (non-negated)
+		{"bracket_at_pos1_match", "[]]", "]", true},
+		{"bracket_at_pos1_nomatch", "[]]", "a", false},
+
+		// ] at position 2 (negated) - should be literal
+		{"negated_bracket_at_pos2_match_a", "[!]]", "a", true},
+		{"negated_bracket_at_pos2_match_b", "[!]]", "b", true},
+		{"negated_bracket_at_pos2_nomatch", "[!]]", "]", false},
+
+		// ] at position 2 (non-negated) - should end class
+		{"nonnegated_bracket_at_pos2", "[a]", "a", true},
+
+		// In full paths
+		{"full_path_negated", "file[!]].txt", "filea.txt", true},
+		{"full_path_negated_nomatch", "file[!]].txt", "file].txt", false},
+
+		// With other characters
+		{"bracket_with_others", "[]!a]", "]", true},
+		{"bracket_with_others2", "[]!a]", "!", true},
+		{"bracket_with_others3", "[]!a]", "a", true},
+		{"bracket_with_others_nomatch", "[]!a]", "b", false},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Validate pattern first
+			_, err := Validate(tc.pattern)
+			if err != nil {
+				t.Fatalf("Pattern %s should be valid but got error: %v", tc.pattern, err)
+			}
+
+			// Test match
+			matched, _ := Match(tc.pattern, tc.path)
+			if matched != tc.expected {
+				t.Errorf("Pattern %s vs path %s: expected %v, got %v",
+					tc.pattern, tc.path, tc.expected, matched)
 			}
 		})
 	}
